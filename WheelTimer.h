@@ -2,10 +2,10 @@
 #define __WHEEL_TIMER__
 
 #include <pthread.h>
+#include "LinkedListApi.h"
 
 typedef struct _wheel_timer_elem_t wheel_timer_elem_t;
 typedef void (*app_call_back)(void *arg, int sizeof_arg);
-typedef struct LL ll_t;   /* Linked List*/
 
 struct _wheel_timer_elem_t{
 	int time_interval;
@@ -29,6 +29,7 @@ typedef struct _wheel_timer_t {
 wheel_timer_t*
 init_wheel_timer(int wheel_size, int clock_tic_interval);
 
+/*Gives the absolute slot no since the time WT has started*/
 #define GET_WT_CURRENT_ABS_SLOT_NO(wt)	((wt->current_cycle_no * wt->wheel_size) + wt->current_clock_tic)
 
 wheel_timer_elem_t * 

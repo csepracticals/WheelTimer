@@ -4,11 +4,15 @@
 #include <memory.h>
 #include <unistd.h>
 #include <time.h>
-#include "LinkedListApi.h"
 #include <pthread.h>
 
 #define TH_JOINABLE	1
 #define TH_DETACHED	0
+
+/* Note : This wheel timer implementation do not maintain the list of events in
+ * a slot in sorted manner based on r value of events. This is 
+ * design defect. But as discussed in the tutorial, you need to
+ * maintain the list of event sorted based on r value*/
 
 wheel_timer_t*
 init_wheel_timer(int wheel_size, int clock_tic_interval){
@@ -62,27 +66,39 @@ wheel_fn(void *arg){
 		if(is_singly_ll_empty(slot_list))
 			printf("\n");
 
-         /* This is a macro to iterate over a lined list. While 
+         /* This is a macro to iterate over a linked list. While 
           * iterating over a linked list, even if you delete the current node
           * being processes "head" , the loop still runs fine. You should
           * learn show to write such looping macros in C*/
 		 ITERATE_LIST_BEGIN2(slot_list, head, prev_node){
 
 			wt_elem = (wheel_timer_elem_t *)head->data;
-		
+
+            /*Check if R == r*/
 			if(wt->current_cycle_no == wt_elem->execute_cycle_no){
+                /*Invoke the application event through fn pointer as below*/
 				wt_elem->app_callback(wt_elem->arg, wt_elem->arg_size);
+
+                /*After invocation, check if the event needs to be rescheduled again
+                 * in future*/
 				if(wt_elem->is_recurrence){
 					
-                    /*relocate*/
+                    /*relocate Or reschedule to the next slot*/
 					int next_abs_slot_no  = absolute_slot_no + (wt_elem->time_interval/wt->clock_tic_interval);
 					int next_cycle_no     = next_abs_slot_no / wt->wheel_size;
 					int next_slot_no      = next_abs_slot_no % wt->wheel_size;
 					wt_elem->execute_cycle_no 	 = next_cycle_no;
+
+                    /*It might be possible that next slot no could be same as 
+                     * where the current clock time is. Inb this case, simply
+                     * update the r value and adjust the wt_elem position
+                     * in the linked list in the increasing order of r value*/
 					if(next_slot_no == wt->current_clock_tic){
 						ITERATE_LIST_CONTINUE2(slot_list, head, prev_node);
 					}
+                    /*Remove from Event from the old slot*/
 					singly_ll_remove_node(slot_list, head);
+                    /*Add the event to the new slot*/
 					singly_ll_add_node(wt->slots[next_slot_no], head);
 				}
 				else{
